@@ -25,6 +25,22 @@ and the selectors survive it.
 
 A warm reboot of the host clears the selectors, so the sequence has to run after every host boot.
 
+## Automating it
+
+`packaging/bhyve/` runs the sequence on every host boot:
+
+- Guest: `gpu-unlock-handoff` and its systemd unit. The unit only runs when the command line
+  carries `gpu_unlock.defer_flr=1`. When this boot's log shows `FLR deferred to the hypervisor`, it
+  powers the VM off. On the next boot the module logs `already unlocked` and the unit does nothing.
+  So the unlock options can stay on the command line permanently.
+- Host (FreeBSD): `gpu-unlock-handoff-host` and the rc.d script `gpu_unlock_handoff`
+  (`gpu_unlock_handoff_enable`, `_vm`, `_window` in rc.conf). After boot it waits for the VM to
+  start, then for its first stop within the window, and starts it again with `virsh`.
+
+bhyve sets its process title with setproctitle, so the host matches `bhyve: <vm> ` in `ps`
+output. `pgrep -f` does not see that title. On the tested host a full handoff took about 40 s
+from the VM's first start to its second.
+
 ## Measured
 
 Same card, cubin, power limit, driver and launch settings in both states:

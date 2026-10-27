@@ -1,0 +1,29 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+# Host half of the bhyve handoff (FreeBSD). After the host boots, wait for the VM to start,
+# then for its first stop inside the window: that stop is the guest's deferred-unlock power
+# off. Start the VM once more; bhyve has reset the card in between.
+# Usage: gpu-unlock-handoff-host <libvirt domain> <window seconds>
+set -eu
+
+vm=$1
+window=${2:-600}
+virsh="/usr/local/bin/virsh -c bhyve:///system"
+running() { ps -axo command= | grep -q "^bhyve: ${vm} " ; }
+log() { echo "$(date -u +%FT%TZ) gpu-unlock-handoff: $*"; }
+
+t=0
+until running; do
+	[ "$t" -ge "$window" ] && { log "VM $vm never started within ${window}s; nothing to do"; exit 0; }
+	sleep 2; t=$((t + 2))
+done
+log "VM $vm running after ${t}s; waiting for the deferred-unlock power off"
+
+while running; do
+	[ "$t" -ge "$window" ] && { log "VM $vm still running after ${window}s; no handoff this boot"; exit 0; }
+	sleep 2; t=$((t + 2))
+done
+log "VM $vm stopped after ${t}s; starting it again"
+sleep 3
+$virsh start "$vm"
+log "VM $vm started"
