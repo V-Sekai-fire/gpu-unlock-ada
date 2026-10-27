@@ -127,6 +127,7 @@ struct unlock_transaction_page {
 
 struct unlock_transaction_work {
 	struct pci_dev *pdev;
+	bool defer_flr;
 	void __iomem *bar;
 	resource_size_t bar_len;
 	u16 original_cmd;
@@ -1657,6 +1658,10 @@ static int unlock_transaction_reset(struct unlock_transaction_work *work)
 	 * efifb) on this card must go first; nvidia-drm replaces it later. This
 	 * does nothing on a card without one.
 	 */
+	if (work->defer_flr) {
+		dev_info(&work->pdev->dev, "FLR deferred to the hypervisor: BME=0 chip=%#x ss0=%#x ss1=%#x\n", chip, ss0, ss1);
+		return -EINPROGRESS;
+	}
 	ret = gpu_unlock_remove_apertures(work->pdev);
 	if (ret)
 		return GU_RESULT(ret);
@@ -1748,6 +1753,7 @@ int gpu_unlock_610_unlock(struct pci_dev *pdev, const struct gpu_unlock_610_shar
 		return -ENOMEM;
 	work->pdev = pci_dev_get(pdev);
 	work->gsp_fw = shared->gsp;
+	work->defer_flr = shared->defer_flr;
 	ret = unlock_transaction_assets(work);
 	if (!ret)
 		ret = unlock_transaction_claim(work);

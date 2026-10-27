@@ -108,6 +108,22 @@ int main(int argc, char **argv)
         if(mode==2 || mode==6)assert(ret==-EIO);
         assert(!unlock_transaction_unwind(&w) && !w.retained);
     }
+    /* defer_flr stops after verified selectors and issues no FLR; the live
+     * firmware keeps its buffers until the hypervisor resets the card. */
+    {
+        ad102_setup(&w);w.payload_verified=true;w.firmware_started=true;
+        fake.ad_mode=0;w.defer_flr=true;
+        assert(!ad102_sample_permissions(&w,"before-firmware",w.permission_before,true));
+        w.permission_saved=true;
+        assert(!unlock_transaction_selector(&w));
+        regs[GU_FEAT_PLM_OFFSET/4]=~0u;
+        w.signature_calls=2;
+        assert(unlock_transaction_reset(&w)==-EINPROGRESS && !fake.flrs);
+        assert(strstr(fake.log,"FLR deferred to the hypervisor"));
+        assert(unlock_transaction_unwind(&w)==-EBUSY && w.retained);
+        w.firmware_started=false;w.retained=false;
+        assert(!unlock_transaction_unwind(&w));
+    }
     /* Real asset parsing, pinning, publication, restore, FLR and retention;
      * all register behavior is supplied by this host-only harness. */
     if(argc==3) {

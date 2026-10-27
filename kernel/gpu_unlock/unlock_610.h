@@ -8,6 +8,9 @@ struct pci_dev;
 /* Read-only firmware every unlock uses: loaded once, shared by concurrent unlocks. */
 struct gpu_unlock_610_shared {
 	const struct firmware *gsp;
+	/* Stop before the in-guest FLR; a hypervisor that resets the card on VM
+	 * shutdown performs it instead (bhyve). */
+	bool defer_flr;
 };
 
 /*
