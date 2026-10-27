@@ -39,6 +39,10 @@ static bool rtx4090d_experimental;
 module_param(rtx4090d_experimental, bool, 0444);
 MODULE_PARM_DESC(rtx4090d_experimental, "permit experimental RTX 4090 D (10de:2685) targets");
 
+static bool defer_flr;
+module_param(defer_flr, bool, 0444);
+MODULE_PARM_DESC(defer_flr, "stop before the in-guest FLR and leave the reset to the hypervisor (bhyve); see docs/bhyve-passthrough.md");
+
 /* RTX 4090 and supported desktop GA102/GA103/GA104/GA106/GA107 GPU functions.
  * Professional parts already have full FP32-accumulate tensor issue rate.
  */
@@ -190,6 +194,7 @@ static int __init gpu_unlock_init(void)
 	all = !strcmp(targets, "all");
 	if (!all)
 		report_unmatched();
+	shared.defer_flr = defer_flr;
 	while ((pdev = next_supported(pdev))) {
 		const struct experimental_id *id = experimental(pdev);
 
