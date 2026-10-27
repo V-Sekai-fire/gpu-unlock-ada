@@ -1,0 +1,31 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# PROVIDE: gpu_unlock_handoff
+# REQUIRE: LOGIN sylve
+# KEYWORD: nojail
+#
+# rc.conf:
+#   gpu_unlock_handoff_enable="YES"
+#   gpu_unlock_handoff_vm="101"        libvirt domain of the GPU guest
+#   gpu_unlock_handoff_window="600"    seconds to wait for the guest's power off
+
+. /etc/rc.subr
+
+name=gpu_unlock_handoff
+rcvar=gpu_unlock_handoff_enable
+start_cmd="${name}_start"
+stop_cmd=":"
+
+load_rc_config $name
+: ${gpu_unlock_handoff_enable:=NO}
+: ${gpu_unlock_handoff_vm:=101}
+: ${gpu_unlock_handoff_window:=600}
+
+gpu_unlock_handoff_start()
+{
+	/usr/sbin/daemon -f -o /var/log/gpu_unlock_handoff.log -t gpu_unlock_handoff \
+		/usr/local/libexec/gpu-unlock-handoff-host "$gpu_unlock_handoff_vm" "$gpu_unlock_handoff_window"
+}
+
+run_rc_command "$1"

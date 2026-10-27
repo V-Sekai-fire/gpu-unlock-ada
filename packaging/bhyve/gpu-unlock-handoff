@@ -1,0 +1,29 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+# Guest half of the bhyve handoff. Runs once per boot when the kernel command line carries
+# gpu_unlock.defer_flr=1. If this boot's unlock stopped before the FLR, power the VM off so
+# bhyve resets the card; the host half starts the VM again and NVIDIA binds on that boot.
+# Any other result (already unlocked, card used since power on, no target) changes nothing.
+set -eu
+
+wait_s=${GPU_UNLOCK_HANDOFF_WAIT:-120}
+pattern='FLR deferred to the hypervisor|gpu_unlock: (unlock failed|unlocked|already unlocked)|power off first'
+
+i=0
+while [ "$i" -lt "$wait_s" ]; do
+	log=$(journalctl -k -b -o cat --no-pager 2>/dev/null | grep -E "$pattern" || true)
+	[ -n "$log" ] && break
+	sleep 1
+	i=$((i + 1))
+done
+
+if [ -z "$log" ]; then
+	echo "gpu-unlock-handoff: no gpu_unlock result after ${wait_s}s; nothing to do"
+	exit 0
+fi
+echo "$log" | sed 's/^/gpu-unlock-handoff: /'
+
+if echo "$log" | grep -q 'FLR deferred to the hypervisor'; then
+	echo "gpu-unlock-handoff: selectors written; powering off for the hypervisor reset"
+	systemctl --no-block poweroff
+fi

@@ -1,0 +1,11 @@
+[Unit]
+Description=Power off after a deferred gpu_unlock so the hypervisor resets the card
+ConditionKernelCommandLine=gpu_unlock.defer_flr=1
+After=systemd-journald.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/gpu-unlock-handoff
+
+[Install]
+WantedBy=multi-user.target
